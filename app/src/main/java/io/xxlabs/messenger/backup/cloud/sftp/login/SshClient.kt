@@ -1,10 +1,17 @@
 package io.xxlabs.messenger.backup.cloud.sftp.login
 
 import io.xxlabs.messenger.BuildConfig
+import io.xxlabs.messenger.R
+import io.xxlabs.messenger.support.appContext
+import io.xxlabs.messenger.ui.dialog.info.InfoDialogUI
+import io.xxlabs.messenger.ui.dialog.warning.WarningDialogUI
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import net.schmizz.sshj.SSHClient
+import net.schmizz.sshj.common.DisconnectReason
+import net.schmizz.sshj.common.KeyType
 import net.schmizz.sshj.common.SecurityUtils
+import net.schmizz.sshj.transport.TransportException
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier
 import timber.log.Timber
 import kotlin.coroutines.resume
@@ -47,6 +54,11 @@ object Ssh : SshClient {
 
             try {
                 ssh.authPassword(credentials.username, credentials.password)
+            } catch (e: TransportException) {
+                if (e.disconnectReason == DisconnectReason.HOST_KEY_NOT_VERIFIABLE) {
+                    Timber.d("Disconnected-- could not verify host identity.")
+                }
+                continuation.resumeWithException(Exception(""))
             } catch (e: Exception) {
                 continuation.resumeWithException(e)
                 return@suspendCoroutine
@@ -75,5 +87,35 @@ object Ssh : SshClient {
                 client = null
             }
         }
+    }
+
+    private fun generateUnknownHostWarning(identity: HostIdentity): WarningDialogUI {
+        return with(identity) {
+            val infoDialogUi = InfoDialogUI.create(
+                title = appContext().getString(R.string.ssh_unknown_host_title),
+                body = "Could not verify `" + KeyType.fromKey(key)
+                        + "` host key with fingerprint `" + SecurityUtils.getFingerprint(key)
+                        + "` for `" + hostname
+                        + "` on port " + port,
+                spans = null,
+                onDismissed = ::refuseConnection
+            )
+
+            WarningDialogUI.create(
+                infoDialogUI = infoDialogUi,
+                buttonText = "I trust this host",
+                buttonOnClick = ::addToWhitelist
+            )
+        }
+    }
+
+
+    private fun refuseConnection() {
+
+    }
+
+    private fun addToWhitelist() {
+        // Save host, port and fingerprint to database or preferences.
+        // Retry the connection.
     }
 }

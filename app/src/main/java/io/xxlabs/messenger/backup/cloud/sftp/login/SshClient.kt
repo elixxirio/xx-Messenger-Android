@@ -1,32 +1,31 @@
 package io.xxlabs.messenger.backup.cloud.sftp.login
 
-import io.xxlabs.messenger.BuildConfig
-import io.xxlabs.messenger.R
-import io.xxlabs.messenger.support.appContext
-import io.xxlabs.messenger.ui.dialog.info.InfoDialogUI
-import io.xxlabs.messenger.ui.dialog.warning.WarningDialogUI
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import net.schmizz.sshj.SSHClient
 import net.schmizz.sshj.common.DisconnectReason
-import net.schmizz.sshj.common.KeyType
 import net.schmizz.sshj.common.SecurityUtils
 import net.schmizz.sshj.transport.TransportException
-import net.schmizz.sshj.transport.verification.PromiscuousVerifier
+import net.schmizz.sshj.transport.verification.HostKeyVerifier
 import timber.log.Timber
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
 interface SshClient {
+    fun addHostKeyVerifier(verifier: HostKeyVerifier)
     suspend fun connect(credentials: SshCredentials): SSHClient
     suspend fun disconnect()
 }
 
-object Ssh : SshClient, KnownHostsListener {
+object Ssh : SshClient {
 
     private var client: SSHClient? = null
     private var cachedCredentials: SshCredentials? = null
+    private val customVerifiers: MutableSet<HostKeyVerifier> = mutableSetOf()
+
+    override fun addHostKeyVerifier(verifier: HostKeyVerifier) {
+        customVerifiers.add(verifier)
+    }
 
     /**
      * Attempt an remote connection with the provided [SshCredentials].
@@ -44,11 +43,7 @@ object Ssh : SshClient, KnownHostsListener {
             // BouncyCastle is deprecated in Android P+
             SecurityUtils.setRegisterBouncyCastle(false)
             val ssh = SSHClient(Config).apply {
-                if (BuildConfig.DEBUG) {
-                    addHostKeyVerifier(PromiscuousVerifier())
-                } else {
-                    addHostKeyVerifier(KnownHostsVerifier())
-                }
+                customVerifiers.forEach { addHostKeyVerifier(it) }
                 connect(credentials.host, credentials.port.toInt())
             }
 
@@ -56,9 +51,11 @@ object Ssh : SshClient, KnownHostsListener {
                 ssh.authPassword(credentials.username, credentials.password)
             } catch (e: TransportException) {
                 if (e.disconnectReason == DisconnectReason.HOST_KEY_NOT_VERIFIABLE) {
-                    Timber.d("Disconnected-- could not verify host identity.")
+                    Timber.d(e)
+                    continuation.resumeWithException(Exception(""))
+                } else {
+                    continuation.resumeWithException(e)
                 }
-                continuation.resumeWithException(Exception(""))
             } catch (e: Exception) {
                 continuation.resumeWithException(e)
                 return@suspendCoroutine
@@ -87,39 +84,5 @@ object Ssh : SshClient, KnownHostsListener {
                 client = null
             }
         }
-    }
-
-    override fun onUnknownHost(host: HostIdentity) {
-        generateUnknownHostWarning(host)
-    }
-
-    private fun generateUnknownHostWarning(identity: HostIdentity): WarningDialogUI {
-        return with(identity) {
-            val infoDialogUi = InfoDialogUI.create(
-                title = appContext().getString(R.string.ssh_unknown_host_title),
-                body = "Could not verify `" + KeyType.fromKey(key)
-                        + "` host key with fingerprint `" + SecurityUtils.getFingerprint(key)
-                        + "` for `" + hostname
-                        + "` on port " + port,
-                spans = null,
-                onDismissed = ::refuseConnection
-            )
-
-            WarningDialogUI.create(
-                infoDialogUI = infoDialogUi,
-                buttonText = "Continue anyway",
-                buttonOnClick = ::addToWhitelist
-            )
-        }
-    }
-
-
-    private fun refuseConnection() {
-
-    }
-
-    private fun addToWhitelist() {
-        // Save host, port and fingerprint to database or preferences.
-        // Retry the connection.
     }
 }

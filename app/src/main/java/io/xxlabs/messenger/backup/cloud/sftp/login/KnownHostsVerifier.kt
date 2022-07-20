@@ -5,6 +5,7 @@ import java.security.PublicKey
 
 interface KnownHostsDataSource {
     fun contains(host: HostIdentity): Boolean
+    fun add(host: HostIdentity): Int
 }
 
 interface KnownHostsListener {

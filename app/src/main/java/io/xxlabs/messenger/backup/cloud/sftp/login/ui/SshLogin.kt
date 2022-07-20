@@ -96,11 +96,11 @@ class SshLogin(
         try {
             sshClient.connect(
                 SshCredentials(
-                host = host,
-                port = port,
-                username = username,
-                password = password
-            )
+                    host = host,
+                    port = port,
+                    username = username,
+                    password = password
+                )
             )
             onSuccess()
         } catch (e: UserAuthException) {

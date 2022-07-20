@@ -23,7 +23,7 @@ interface SshClient {
     suspend fun disconnect()
 }
 
-object Ssh : SshClient {
+object Ssh : SshClient, KnownHostsListener {
 
     private var client: SSHClient? = null
     private var cachedCredentials: SshCredentials? = null
@@ -89,6 +89,10 @@ object Ssh : SshClient {
         }
     }
 
+    override fun onUnknownHost(host: HostIdentity) {
+        generateUnknownHostWarning(host)
+    }
+
     private fun generateUnknownHostWarning(identity: HostIdentity): WarningDialogUI {
         return with(identity) {
             val infoDialogUi = InfoDialogUI.create(
@@ -103,7 +107,7 @@ object Ssh : SshClient {
 
             WarningDialogUI.create(
                 infoDialogUI = infoDialogUi,
-                buttonText = "I trust this host",
+                buttonText = "Continue anyway",
                 buttonOnClick = ::addToWhitelist
             )
         }

@@ -9,11 +9,11 @@ import net.schmizz.sshj.common.SecurityUtils
 import net.schmizz.sshj.transport.verification.HostKeyVerifier
 import java.security.PublicKey
 
-interface UserConsentListener {
-    fun showConsentPrompt(dialogUI: WarningDialogUI)
+interface KnownHostsDataSource {
+    fun contains(host: HostIdentity): Boolean
 }
 
-private data class HostIdentity(
+data class HostIdentity(
     val hostname: String? = "",
     val port: Int = 22,
     val key: PublicKey?
@@ -22,22 +22,13 @@ private data class HostIdentity(
 /**
  * Prompts user to allow connection to a host with an unverified fingerprint.
  */
-class UserConsentVerifier(
-    private val listener: UserConsentListener? = null
+class KnownHostsVerifier(
+    private val knownHosts: KnownHostsDataSource? = null
 ) : HostKeyVerifier {
-
-    private var hostCache: HostIdentity? = null
 
     override fun verify(hostname: String?, port: Int, key: PublicKey?): Boolean {
         return with (HostIdentity(hostname, port, key)) {
-            if (isWhitelisted()) {
-                true
-            } else {
-                hostCache = this
-                val warningDialog = generateUnknownHostWarning(this)
-                promptForConsent(warningDialog)
-                false
-            }
+            knownHosts?.contains(this) ?: false
         }
     }
 
@@ -61,9 +52,6 @@ class UserConsentVerifier(
         }
     }
 
-    private fun HostIdentity.isWhitelisted(): Boolean {
-        return false
-    }
 
     private fun refuseConnection() {
 
@@ -72,9 +60,5 @@ class UserConsentVerifier(
     private fun addToWhitelist() {
         // Save host, port and fingerprint to database or preferences.
         // Retry the connection.
-    }
-
-    private fun promptForConsent(warningDialog: WarningDialogUI) {
-        listener?.showConsentPrompt(warningDialog)
     }
 }

@@ -40,7 +40,7 @@ object Ssh : SshClient {
                 if (BuildConfig.DEBUG) {
                     addHostKeyVerifier(PromiscuousVerifier())
                 } else {
-                    addHostKeyVerifier(UserConsentVerifier())
+                    addHostKeyVerifier(KnownHostsVerifier())
                 }
                 connect(credentials.host, credentials.port.toInt())
             }

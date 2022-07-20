@@ -41,6 +41,9 @@ class SshLoginViewModel : ViewModel(), SshLoginListener, KnownHostsListener {
     val loginError: LiveData<String?> by ::_loginError
     private val _loginError = MutableLiveData<String?>(null)
 
+    val unknownHostWarning: LiveData<WarningDialogUI?> by ::_unknownHostWarning
+    private val _unknownHostWarning = MutableLiveData<WarningDialogUI?>(null)
+
     override fun onLoginSuccess(credentials: SshCredentials) {
         _loginSuccess.postValue(credentials)
     }
@@ -51,7 +54,12 @@ class SshLoginViewModel : ViewModel(), SshLoginListener, KnownHostsListener {
     }
 
     override fun onUnknownHost(host: HostIdentity) {
-        generateUnknownHostWarning(host)
+        val warningUi = generateUnknownHostWarning(host)
+        _unknownHostWarning.value = warningUi
+    }
+
+    fun onUnknownHostWarningHandled() {
+        _unknownHostWarning.value = null
     }
 
     private fun generateUnknownHostWarning(host: HostIdentity): WarningDialogUI {

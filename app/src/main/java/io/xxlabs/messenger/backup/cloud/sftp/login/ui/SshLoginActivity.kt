@@ -7,6 +7,8 @@ import androidx.appcompat.app.AppCompatActivity
 import io.xxlabs.messenger.backup.cloud.sftp.login.SshCredentials
 import io.xxlabs.messenger.databinding.ActivitySftpAuthBinding
 import io.xxlabs.messenger.support.extensions.toast
+import io.xxlabs.messenger.ui.dialog.warning.WarningDialog
+import io.xxlabs.messenger.ui.dialog.warning.WarningDialogUI
 
 class SshLoginActivity : AppCompatActivity() {
 
@@ -37,6 +39,19 @@ class SshLoginActivity : AppCompatActivity() {
         sftpViewModel.loginError.observe(this) { error ->
             error?.let { toast(error) }
         }
+
+        sftpViewModel.unknownHostWarning.observe(this) { warningUi ->
+            warningUi?.let {
+                showUnknownHostWarning(warningUi)
+                sftpViewModel.onUnknownHostWarningHandled()
+            }
+        }
+    }
+
+    private fun showUnknownHostWarning(warningUi: WarningDialogUI) {
+        WarningDialog
+            .newInstance(warningUi)
+            .show(supportFragmentManager, null)
     }
 
     private fun onLoginSuccess(credentials: SshCredentials) {

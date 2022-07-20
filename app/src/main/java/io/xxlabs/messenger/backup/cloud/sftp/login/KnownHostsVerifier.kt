@@ -13,8 +13,8 @@ interface KnownHostsListener {
 }
 
 data class HostIdentity(
-    val hostname: String? = "",
-    val port: Int = 22,
+    val hostname: String,
+    val port: Int,
     val key: PublicKey?
 )
 
@@ -22,14 +22,14 @@ data class HostIdentity(
  * Prompts user to allow connection to a host with an unverified fingerprint.
  */
 class KnownHostsVerifier(
-    private val knownHosts: KnownHostsDataSource? = null,
-    private val hostsListener: KnownHostsListener? = null
+    private val knownHosts: KnownHostsDataSource,
+    private val hostsListener: KnownHostsListener
 ) : HostKeyVerifier {
 
     override fun verify(hostname: String?, port: Int, key: PublicKey?): Boolean {
-        return with (HostIdentity(hostname, port, key)) {
-            val verified = knownHosts?.contains(this) ?: false
-            if (!verified) hostsListener?.onUnknownHost(this)
+        return with (HostIdentity(hostname ?: "", port, key)) {
+            val verified = knownHosts.contains(this)
+            if (!verified) hostsListener.onUnknownHost(this)
 
             verified
         }

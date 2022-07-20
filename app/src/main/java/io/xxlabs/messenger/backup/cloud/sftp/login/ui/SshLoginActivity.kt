@@ -13,7 +13,7 @@ import io.xxlabs.messenger.ui.dialog.warning.WarningDialogUI
 class SshLoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivitySftpAuthBinding
-    private val sftpViewModel: SshLoginViewModel by viewModels()
+    private val sshViewModel: SshLoginViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,22 +28,22 @@ class SshLoginActivity : AppCompatActivity() {
     }
 
     private fun observeUi() {
-        sftpViewModel.sshLoginUi.observe(this) { ui ->
+        sshViewModel.sshLoginUi.observe(this) { ui ->
             ui?.let { binding.ui = it }
         }
 
-        sftpViewModel.loginSuccess.observe(this) { credentials ->
+        sshViewModel.loginSuccess.observe(this) { credentials ->
             credentials?.let { onLoginSuccess(credentials) }
         }
 
-        sftpViewModel.loginError.observe(this) { error ->
+        sshViewModel.loginError.observe(this) { error ->
             error?.let { toast(error) }
         }
 
-        sftpViewModel.unknownHostWarning.observe(this) { warningUi ->
+        sshViewModel.unknownHostWarning.observe(this) { warningUi ->
             warningUi?.let {
                 showUnknownHostWarning(warningUi)
-                sftpViewModel.onUnknownHostWarningHandled()
+                sshViewModel.onUnknownHostWarningHandled()
             }
         }
     }

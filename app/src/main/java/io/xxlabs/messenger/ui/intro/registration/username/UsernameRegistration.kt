@@ -111,8 +111,12 @@ class UsernameRegistration @AssistedInject constructor(
                 val filtered = source?.subSequence(start, end)
                     ?.replace(Regex(USERNAME_FILTER_REGEX), "")
                 if (filtered == input) null else filtered
-            }
+            },
+            InputFilter.LengthFilter(MAX_USERNAME_LENGTH)
         )
+
+    override val restoreEnabled: LiveData<Boolean> by ::_restoreEnabled
+    private val _restoreEnabled = MutableLiveData(true)
 
     override fun onUsernameInfoClicked() {
         if (infoClicked.value == true) return
@@ -124,6 +128,7 @@ class UsernameRegistration @AssistedInject constructor(
     }
 
     override fun onUsernameNextClicked() {
+        disableAccountRestore()
         disableUI()
         username.value?.apply {
             when {
@@ -132,6 +137,14 @@ class UsernameRegistration @AssistedInject constructor(
                 else -> enableUI()
             }
         } ?: enableUI()
+    }
+
+    /**
+     * Prevent the restore account flow once a username has been submitted.
+     * Submitting a username instantiates a Client object that can't be replaced.
+     */
+    private fun disableAccountRestore() {
+        _restoreEnabled.value = false
     }
 
     override fun onUsernameInput(text: Editable) {
@@ -196,14 +209,24 @@ class UsernameRegistration @AssistedInject constructor(
                     .observeOn(scheduler.main)
                     .doOnError {
                         it.message?.let { error ->
-                            displayError(error)
+                            if (error.isNetworkNotHealthyError()) handleNetworkHealthError()
+                            else {
+                                displayError(error)
+                                enableUI()
+                            }
                         }
-                        enableUI()
                     }.doOnSuccess {
                         onSuccessfulRegistration(username, isDemoAcct)
                     }.subscribe()
             }
         }
+    }
+
+    private fun String.isNetworkNotHealthyError() =
+        contains("network is not healthy")
+
+    private fun handleNetworkHealthError() {
+        onUsernameNextClicked()
     }
 
     private fun displayError(errorMsg: String) {
@@ -255,7 +278,11 @@ class UsernameRegistration @AssistedInject constructor(
     }
 
     override fun onRestoreAccountClicked() {
-        navigateRestore.value = true
+        if (_restoreEnabled.value == false) {
+            error.value = appContext().getString(R.string.registration_restore_disabled_error)
+        } else {
+            navigateRestore.value = true
+        }
     }
 
     companion object {
